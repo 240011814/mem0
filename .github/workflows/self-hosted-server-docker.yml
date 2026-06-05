@@ -22,13 +22,12 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: ${{ github.repository }}/self-hosted-server
-  DASHBOARD_IMAGE_NAME: ${{ github.repository }}/self-hosted-dashboard
+  IMAGE_NAME: ${{ github.repository }}/mem0
   DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
 jobs:
   build:
-    name: Build and push Docker images
+    name: Build and push Docker image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,29 +51,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build self-hosted stack images
-        run: docker compose -f server/docker-compose.yaml build mem0 mem0-dashboard
+      - name: Build self-hosted server image
+        run: docker compose -f server/docker-compose.yaml build mem0
 
-      - name: Push self-hosted stack images
+      - name: Push self-hosted server image
         if: github.event_name != 'pull_request'
         env:
-          API_IMAGE: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
-          DASHBOARD_IMAGE: ${{ env.REGISTRY }}/${{ env.DASHBOARD_IMAGE_NAME }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
           set -euo pipefail
 
-          api_source="$(docker compose -f server/docker-compose.yaml images -q mem0)"
-          dashboard_source="$(docker compose -f server/docker-compose.yaml images -q mem0-dashboard)"
+          source_image="$(docker compose -f server/docker-compose.yaml images -q mem0)"
           sha_tag="sha-${GITHUB_SHA::7}"
 
-          docker tag "$api_source" "$API_IMAGE:$sha_tag"
-          docker tag "$dashboard_source" "$DASHBOARD_IMAGE:$sha_tag"
-          docker push "$API_IMAGE:$sha_tag"
-          docker push "$DASHBOARD_IMAGE:$sha_tag"
+          docker tag "$source_image" "$IMAGE:$sha_tag"
+          docker push "$IMAGE:$sha_tag"
 
           if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
-            docker tag "$api_source" "$API_IMAGE:latest"
-            docker tag "$dashboard_source" "$DASHBOARD_IMAGE:latest"
-            docker push "$API_IMAGE:latest"
-            docker push "$DASHBOARD_IMAGE:latest"
+            docker tag "$source_image" "$IMAGE:latest"
+            docker push "$IMAGE:latest"
           fi
