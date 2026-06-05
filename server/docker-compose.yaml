@@ -34,7 +34,9 @@ services:
       restart: on-failure
       shm_size: "128mb"
       networks:
-        - mem0_network
+        mem0_network:
+          aliases:
+            - postgres
       environment:
         - POSTGRES_USER=${POSTGRES_USER:-postgres}
         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
