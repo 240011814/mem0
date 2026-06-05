@@ -1,12 +1,20 @@
 #!/bin/bash
 set -e
 
+# Detect PostgreSQL binary path
+PG_BIN=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | head -1)
+if [ -z "$PG_BIN" ]; then
+    echo "ERROR: PostgreSQL binaries not found"
+    exit 1
+fi
+echo "Using PostgreSQL binaries from: $PG_BIN"
+
 # ---- Initialize PostgreSQL data directory (first run only) ----
 if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
     echo "Initializing PostgreSQL data directory..."
     mkdir -p /var/lib/postgresql/data
     chown -R postgres:postgres /var/lib/postgresql
-    su - postgres -c "/usr/lib/postgresql/16/bin/initdb -D /var/lib/postgresql/data"
+    su - postgres -c "$PG_BIN/initdb -D /var/lib/postgresql/data"
 
     # Enable password auth for local connections
     echo "local all all trust" > /var/lib/postgresql/data/pg_hba.conf
@@ -16,7 +24,7 @@ fi
 
 # ---- Start PostgreSQL for initialization ----
 echo "Starting PostgreSQL for initialization..."
-su - postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/postgresql/data -w start"
+su - postgres -c "$PG_BIN/pg_ctl -D /var/lib/postgresql/data -w start"
 
 # Wait for PostgreSQL to be ready
 until pg_isready -h 127.0.0.1 -U postgres -q; do
@@ -46,7 +54,11 @@ alembic upgrade head
 
 # ---- Stop PostgreSQL (supervisord will restart it) ----
 echo "Stopping temporary PostgreSQL..."
-su - postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/postgresql/data -w stop"
+su - postgres -c "$PG_BIN/pg_ctl -D /var/lib/postgresql/data -w stop"
+
+# ---- Create symlink for supervisord (needs fixed path) ----
+ln -sf "$PG_BIN/postgres" /usr/local/bin/pg_postgres
+ln -sf "$PG_BIN/pg_ctl" /usr/local/bin/pg_ctl
 
 # ---- Replace dashboard NEXT_PUBLIC_* placeholders ----
 if [ -d /app/dashboard/.next ]; then

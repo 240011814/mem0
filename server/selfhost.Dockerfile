@@ -1,6 +1,6 @@
 # ============================================================
 # Self-Hosted All-in-One Dockerfile
-# Bundles: PostgreSQL 16 + Python API + Next.js Dashboard
+# Bundles: PostgreSQL + Python API + Next.js Dashboard
 # Managed by supervisord
 # ============================================================
 
@@ -30,11 +30,11 @@ FROM python:3.12-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies: PostgreSQL 16, Node.js 20, supervisor, tools
+# Install system dependencies: PostgreSQL, Node.js 20, supervisor, tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl ca-certificates gnupg \
+        curl ca-certificates gnupg lsb-release \
         supervisor \
-        postgresql-16 postgresql-client-16 \
+        postgresql postgresql-client \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
