@@ -24,11 +24,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/mem
 
 jobs:
   build:
-    name: Build and push Docker image
+    name: Build and push all-in-one Docker image
     runs-on: ubuntu-latest
 
     permissions:
@@ -80,22 +79,23 @@ jobs:
           echo "sha_tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       # -------------------------
-      # 7. Build + Push (multi-arch)
+      # 7. Build + Push all-in-one image
+      #    打包内容: PostgreSQL 16 + Python API + Next.js Dashboard
+      #    context: 仓库根目录, dockerfile: server/selfhost.Dockerfile
       # -------------------------
-      - name: Build and push image
+      - name: Build and push all-in-one image
         uses: docker/build-push-action@v6
         with:
-          context: server
-          file: server/Dockerfile
+          context: .
+          file: server/selfhost.Dockerfile
 
-          # ✅ 核心：支持多架构
           platforms: linux/amd64,linux/arm64
 
           push: ${{ github.event_name != 'pull_request' }}
 
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.sha_tag }}
-            ${{ github.ref_name == github.event.repository.default_branch && format('{0}/{1}:latest', env.REGISTRY, env.IMAGE_NAME) || '' }}
+            ${{ env.REGISTRY }}/${{ github.repository }}/mem0:${{ steps.vars.outputs.sha_tag }}
+            ${{ github.ref_name == github.event.repository.default_branch && format('{0}/{1}/mem0:latest', env.REGISTRY, github.repository) || '' }}
 
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -105,6 +105,12 @@ jobs:
       # -------------------------
       - name: Image summary
         run: |
-          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ github.repository }}/mem0"
           echo "Tag: sha-${GITHUB_SHA::7}"
+          echo "Dockerfile: server/selfhost.Dockerfile"
           echo "Platforms: linux/amd64, linux/arm64"
+          echo ""
+          echo "Bundled services:"
+          echo "  - PostgreSQL 16 (port 5432)"
+          echo "  - mem0 API / uvicorn (port 8000)"
+          echo "  - mem0 Dashboard / Next.js (port 3000)"
