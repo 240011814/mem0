@@ -1,0 +1,78 @@
+name: Self-Hosted Server Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mem0/**"
+      - "server/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "README.md"
+      - ".github/workflows/self-hosted-server-docker.yml"
+  pull_request:
+    paths:
+      - "mem0/**"
+      - "server/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "README.md"
+      - ".github/workflows/self-hosted-server-docker.yml"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: ${{ github.repository }}/self-hosted-server
+  DASHBOARD_IMAGE_NAME: ${{ github.repository }}/self-hosted-dashboard
+  COMPOSE_PROJECT_NAME: mem0-self-hosted
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+jobs:
+  build:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build self-hosted stack images
+        run: docker compose -f server/docker-compose.yaml build mem0 mem0-dashboard
+
+      - name: Push self-hosted stack images
+        if: github.event_name != 'pull_request'
+        env:
+          API_IMAGE: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
+          DASHBOARD_IMAGE: ${{ env.REGISTRY }}/${{ env.DASHBOARD_IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+
+          api_source="${COMPOSE_PROJECT_NAME}-mem0"
+          dashboard_source="${COMPOSE_PROJECT_NAME}-mem0-dashboard"
+          sha_tag="sha-${GITHUB_SHA::7}"
+
+          docker tag "$api_source" "$API_IMAGE:$sha_tag"
+          docker tag "$dashboard_source" "$DASHBOARD_IMAGE:$sha_tag"
+          docker push "$API_IMAGE:$sha_tag"
+          docker push "$DASHBOARD_IMAGE:$sha_tag"
+
+          if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
+            docker tag "$api_source" "$API_IMAGE:latest"
+            docker tag "$dashboard_source" "$DASHBOARD_IMAGE:latest"
+            docker push "$API_IMAGE:latest"
+            docker push "$DASHBOARD_IMAGE:latest"
+          fi
