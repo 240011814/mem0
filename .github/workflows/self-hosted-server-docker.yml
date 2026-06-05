@@ -24,7 +24,6 @@ env:
   REGISTRY: ghcr.io
   API_IMAGE_NAME: ${{ github.repository }}/self-hosted-server
   DASHBOARD_IMAGE_NAME: ${{ github.repository }}/self-hosted-dashboard
-  COMPOSE_PROJECT_NAME: mem0-self-hosted
   DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
 jobs:
@@ -61,8 +60,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          api_source="${COMPOSE_PROJECT_NAME}-mem0"
-          dashboard_source="${COMPOSE_PROJECT_NAME}-mem0-dashboard"
+          api_source="$(docker compose -f server/docker-compose.yaml images -q mem0)"
+          dashboard_source="$(docker compose -f server/docker-compose.yaml images -q mem0-dashboard)"
           sha_tag="sha-${GITHUB_SHA::7}"
 
           docker tag "$api_source" "$API_IMAGE:$sha_tag"
