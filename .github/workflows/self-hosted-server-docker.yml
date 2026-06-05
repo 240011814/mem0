@@ -43,19 +43,25 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------
-      # 2. Setup Buildx
+      # 2. Set up QEMU (ARM support)
+      # -------------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # -------------------------
+      # 3. Set up Buildx
       # -------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       # -------------------------
-      # 3. Prepare env (CI config)
+      # 4. Prepare env (CI config)
       # -------------------------
       - name: Prepare compose environment
         run: cp server/.env.ci server/.env
 
       # -------------------------
-      # 4. Login GHCR (only push)
+      # 5. Login GHCR (only push)
       # -------------------------
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
@@ -66,7 +72,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # -------------------------
-      # 5. Compute tags
+      # 6. Compute tags
       # -------------------------
       - name: Set image tags
         id: vars
@@ -74,14 +80,19 @@ jobs:
           echo "sha_tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       # -------------------------
-      # 6. Build + Push (核心步骤)
+      # 7. Build + Push (multi-arch)
       # -------------------------
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: server
           file: server/Dockerfile
+
+          # ✅ 核心：支持多架构
+          platforms: linux/amd64,linux/arm64
+
           push: ${{ github.event_name != 'pull_request' }}
+
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.sha_tag }}
             ${{ github.ref_name == github.event.repository.default_branch && format('{0}/{1}:latest', env.REGISTRY, env.IMAGE_NAME) || '' }}
@@ -90,9 +101,10 @@ jobs:
           cache-to: type=gha,mode=max
 
       # -------------------------
-      # 7. Optional: show image info
+      # 8. Image info
       # -------------------------
       - name: Image summary
         run: |
           echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           echo "Tag: sha-${GITHUB_SHA::7}"
+          echo "Platforms: linux/amd64, linux/arm64"
